@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hire-codec-web
+  labels:
+    app: hire-codec-web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hire-codec-web
+  template:
+    metadata:
+      labels:
+        app: hire-codec-web
+    spec:
+      containers:
+        - name: web
+          image: hire-codec/web:latest
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: hire-codec-config
+            - secretRef:
+                name: hire-codec-secrets
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hire-codec-web
+spec:
+  selector:
+    app: hire-codec-web
+  ports:
+    - port: 3000
+      targetPort: 3000
+  type: ClusterIP

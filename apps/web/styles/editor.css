@@ -1,0 +1,72 @@
+/* ─── Monaco Editor Customizations ──────────────────────── */
+
+/* Override Monaco's default styles to match our design system */
+.monaco-editor {
+  font-family: 'JetBrains Mono', monospace !important;
+}
+
+.monaco-editor .margin {
+  background: var(--editor-bg) !important;
+}
+
+/* Minimap */
+.monaco-editor .minimap {
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.monaco-editor .minimap:hover {
+  opacity: 1;
+}
+
+/* Suggest widget (autocomplete) */
+.monaco-editor .suggest-widget {
+  border: 1px solid var(--editor-border) !important;
+  background: var(--editor-surface) !important;
+  border-radius: 8px !important;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Parameter hints */
+.monaco-editor .parameter-hints-widget {
+  border: 1px solid var(--editor-border) !important;
+  background: var(--editor-surface) !important;
+  border-radius: 8px !important;
+}
+
+/* Editor hover card */
+.monaco-editor .monaco-hover {
+  border: 1px solid var(--editor-border) !important;
+  background: var(--editor-surface) !important;
+  border-radius: 8px !important;
+}
+
+/* Context menu */
+.monaco-editor .context-view {
+  border-radius: 8px !important;
+  overflow: hidden;
+}
+
+/* Find widget */
+.monaco-editor .find-widget {
+  border: 1px solid var(--editor-border) !important;
+  background: var(--editor-surface) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Remote cursor decorations */
+.remote-cursor-decoration {
+  width: 2px !important;
+  margin-left: -1px;
+}
+
+.remote-selection-decoration {
+  opacity: 0.3;
+}
+
+/* Line highlight for active remote user */
+.remote-line-highlight {
+  opacity: 0.08;
+}

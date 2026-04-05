@@ -1,0 +1,20 @@
+{
+  "name": "hire-codec",
+  "private": true,
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "db:generate": "pnpm --filter @hire-codec/db generate",
+    "db:push": "pnpm --filter @hire-codec/db push",
+    "db:seed": "pnpm --filter @hire-codec/db seed"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "typescript": "^5.4.0"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

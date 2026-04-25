@@ -38,3 +38,10 @@ packages/db/prisma/migrations/
 
 # Testing
 coverage/
+
+# Local-only files
+blueprint.md
+database_setup.sql
+copy-env.js
+generate-sql.js
+init.sql

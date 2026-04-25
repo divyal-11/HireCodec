@@ -219,4 +219,4 @@ MIT
 
 ---
 
-*Built by [Divya Surse](https://github.com/divyal-11)*
+*Built by [Divyal](https://github.com/divyal-11)*

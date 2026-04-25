@@ -9,14 +9,6 @@ export function authMiddleware(
 ) {
   const token = socket.handshake.auth?.token;
 
-  // Allow dev connections without token
-  if (process.env.NODE_ENV === 'development' && !token) {
-    (socket.data as any).userId = `dev-${socket.id}`;
-    (socket.data as any).role = 'interviewer';
-    (socket.data as any).userName = 'Dev User';
-    return next();
-  }
-
   if (!token) {
     return next(new Error('Authentication required'));
   }

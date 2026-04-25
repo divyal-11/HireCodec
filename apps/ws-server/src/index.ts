@@ -109,6 +109,36 @@ io.on('connection', (socket) => {
     presenceHandler.handleNoteUpdate(socket, data);
   });
 
+  // ─── Code Sync (simple broadcast, candidate → interviewer) ────
+  socket.on('code:sync', (data: { roomId: string; code: string }) => {
+    socket.to(data.roomId).emit('code:synced', { code: data.code });
+  });
+
+  // ─── Output Sync (candidate runs → interviewer sees) ─────────
+  socket.on('output:sync', (data: { roomId: string; output: string; submitted: boolean }) => {
+    socket.to(data.roomId).emit('output:synced', {
+      output: data.output,
+      submitted: data.submitted,
+    });
+  });
+
+  // ─── Integrity / Anti-Cheat Events ───────────────────────────
+  socket.on('integrity:event', (data: any) => {
+    const { roomId, ...eventData } = data;
+    // Only notify interviewers in the room (not back to the candidate)
+    const room = roomService.getRoom(roomId);
+    if (room) {
+      room.participants.forEach((participant: any, socketId: string) => {
+        if (participant.role === 'interviewer' && socketId !== socket.id) {
+          io.to(socketId).emit('cheat:event', eventData);
+        }
+      });
+    } else {
+      // Fallback: broadcast to room (simpler for dev)
+      socket.to(roomId).emit('cheat:event', eventData);
+    }
+  });
+
   // ─── Disconnect ────────────────────────────────
   socket.on('disconnect', () => {
     console.log(`[WS] Client disconnected: ${socket.id}`);

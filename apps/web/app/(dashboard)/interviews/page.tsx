@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
@@ -9,54 +9,56 @@ import {
 } from 'lucide-react';
 import { cn, formatDate, getDifficultyColor } from '@/lib/utils';
 
-const MOCK_INTERVIEWS = [
-  {
-    id: '1', title: 'Senior Frontend Engineer', roomId: 'abc-xyz-123',
-    status: 'SCHEDULED', scheduledAt: '2026-04-06T14:00:00Z', durationMinutes: 60,
-    candidate: 'Alice Johnson', interviewer: 'John Doe', questions: 2,
-  },
-  {
-    id: '2', title: 'Backend Developer', roomId: 'def-uvw-456',
-    status: 'ACTIVE', scheduledAt: '2026-04-05T16:30:00Z', durationMinutes: 45,
-    candidate: 'Bob Smith', interviewer: 'Jane Doe', questions: 3,
-  },
-  {
-    id: '3', title: 'Full Stack Engineer', roomId: 'ghi-rst-789',
-    status: 'COMPLETED', scheduledAt: '2026-04-04T10:00:00Z', durationMinutes: 60,
-    candidate: 'Carol Davis', interviewer: 'John Doe', questions: 2,
-  },
-  {
-    id: '4', title: 'DevOps Engineer', roomId: 'jkl-opq-012',
-    status: 'SCHEDULED', scheduledAt: '2026-04-07T14:00:00Z', durationMinutes: 60,
-    candidate: 'Dave Wilson', interviewer: 'Jane Doe', questions: 1,
-  },
-  {
-    id: '5', title: 'ML Engineer', roomId: 'mno-lmn-345',
-    status: 'COMPLETED', scheduledAt: '2026-04-03T09:00:00Z', durationMinutes: 90,
-    candidate: 'Eve Miller', interviewer: 'John Doe', questions: 4,
-  },
-];
+
 
 function statusBadge(status: string) {
   const styles: Record<string, string> = {
-    SCHEDULED: 'bg-blue-100 text-blue-700',
-    ACTIVE: 'bg-emerald-100 text-emerald-700 animate-pulse',
-    COMPLETED: 'bg-gray-100 text-gray-600',
-    CANCELLED: 'bg-red-100 text-red-600',
-    WAITING: 'bg-amber-100 text-amber-700',
+    SCHEDULED: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400',
+    ACTIVE: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 animate-pulse',
+    COMPLETED: 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-400',
+    CANCELLED: 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400',
+    WAITING: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400',
   };
-  return styles[status] || 'bg-gray-100 text-gray-600';
+  return styles[status] || 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-400';
 }
 
 export default function InterviewsPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [interviews, setInterviews] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filtered = MOCK_INTERVIEWS.filter((i) => {
-    const matchesSearch = i.title.toLowerCase().includes(search.toLowerCase()) ||
-      i.candidate.toLowerCase().includes(search.toLowerCase());
+  // Fetch real data from DB
+  useEffect(() => {
+    setLoading(true);
+    fetch('/api/interviews')
+      .then(res => res.json())
+      .then(data => {
+        setInterviews(data.interviews || []);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
+  }, []);
+
+  const getCandidateName = (i: any) => {
+    const c = i.participants?.find((p: any) => p.role === 'candidate');
+    return c?.user?.name || c?.guestName || 'Unnamed Candidate';
+  };
+
+  const getInterviewerName = (i: any) => {
+    const int = i.participants?.find((p: any) => p.role === 'interviewer');
+    return int?.user?.name || 'Interviewer';
+  };
+
+  const filtered = interviews.filter((i) => {
+    const candidateName = getCandidateName(i).toLowerCase();
+    const titleMatch = i.title.toLowerCase().includes(search.toLowerCase());
+    const candidateMatch = candidateName.includes(search.toLowerCase());
     const matchesStatus = statusFilter === 'all' || i.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    return (titleMatch || candidateMatch) && matchesStatus;
   });
 
   return (
@@ -101,7 +103,7 @@ export default function InterviewsPage() {
       <div className="card overflow-hidden">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-dash-border bg-gray-50">
+        <tr className="border-b border-dash-border bg-dash-surface dark:bg-white/[0.02]">
               <th className="text-left px-5 py-3 text-xs font-medium text-dash-muted uppercase tracking-wider">Interview</th>
               <th className="text-left px-5 py-3 text-xs font-medium text-dash-muted uppercase tracking-wider">Candidate</th>
               <th className="text-left px-5 py-3 text-xs font-medium text-dash-muted uppercase tracking-wider">Schedule</th>
@@ -110,13 +112,21 @@ export default function InterviewsPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-dash-border">
-            {filtered.map((interview, i) => (
+            {loading ? (
+              <tr>
+                <td colSpan={5} className="text-center py-8 text-dash-muted">Loading interviews...</td>
+              </tr>
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="text-center py-8 text-dash-muted">No interviews found.</td>
+              </tr>
+            ) : filtered.map((interview, i) => (
               <motion.tr
                 key={interview.id}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: i * 0.03 }}
-                className="hover:bg-gray-50 transition-colors"
+                className="hover:bg-dash-bg dark:hover:bg-white/[0.04] transition-colors"
               >
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-3">
@@ -124,21 +134,21 @@ export default function InterviewsPage() {
                       <Video className="w-4 h-4 text-brand-primary" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-dash-text">{interview.title}</p>
-                      <p className="text-[11px] text-dash-muted font-mono">{interview.roomId}</p>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{interview.title}</p>
+                      <p className="text-[11px] text-gray-400 dark:text-gray-500 font-mono">{interview.roomId}</p>
                     </div>
                   </div>
                 </td>
                 <td className="px-5 py-4">
-                  <p className="text-sm text-dash-text">{interview.candidate}</p>
-                  <p className="text-xs text-dash-muted">{interview.interviewer}</p>
+                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{getCandidateName(interview)}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{getInterviewerName(interview)}</p>
                 </td>
                 <td className="px-5 py-4">
-                  <div className="flex items-center gap-1.5 text-sm text-dash-text">
-                    <Calendar className="w-3.5 h-3.5 text-dash-muted" />
+                  <div className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
+                    <Calendar className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
                     {formatDate(interview.scheduledAt)}
                   </div>
-                  <div className="flex items-center gap-1.5 text-xs text-dash-muted mt-0.5">
+                  <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                     <Clock className="w-3 h-3" />
                     {interview.durationMinutes} min
                   </div>
@@ -150,17 +160,29 @@ export default function InterviewsPage() {
                 </td>
                 <td className="px-5 py-4 text-right">
                   <div className="flex items-center justify-end gap-2">
-                    {interview.status === 'ACTIVE' && (
-                      <Link
-                        href={`/room/${interview.roomId}`}
-                        className="btn-sm px-3 py-1 rounded-md text-[11px] bg-brand-success/10 text-brand-success hover:bg-brand-success/20 font-medium"
-                      >
-                        Join Live
-                      </Link>
+                    {(interview.status === 'ACTIVE' || interview.status === 'SCHEDULED') && (
+                      <>
+                        <Link
+                          href={`/room/${interview.roomId}`}
+                          className="btn-sm px-3 py-1 rounded-md text-[11px] bg-brand-success/10 text-brand-success hover:bg-brand-success/20 font-medium"
+                        >
+                          Join Live
+                        </Link>
+                        <button
+                          onClick={() => {
+                            const candidateUrl = `${window.location.origin}/room/${interview.roomId}?token=${interview.inviteToken || ''}`;
+                            navigator.clipboard.writeText(candidateUrl);
+                            alert('Candidate link copied!');
+                          }}
+                          className="btn-sm px-3 py-1 rounded-md text-[11px] bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/20 font-medium"
+                        >
+                          Copy Link
+                        </button>
+                      </>
                     )}
                     <Link
                       href={`/interviews/${interview.id}`}
-                      className="btn-ghost p-1.5 rounded-md text-dash-muted hover:text-dash-text"
+                      className="btn-ghost p-1.5 rounded-md text-gray-400 hover:text-gray-200"
                     >
                       <ExternalLink className="w-4 h-4" />
                     </Link>

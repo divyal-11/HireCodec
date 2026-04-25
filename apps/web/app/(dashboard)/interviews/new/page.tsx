@@ -19,6 +19,7 @@ export default function NewInterviewPage() {
     durationMinutes: 60,
     candidateName: '',
     candidateEmail: '',
+    interviewerName: '',
     selectedQuestions: [] as string[],
   });
   const [loading, setLoading] = useState(false);
@@ -26,12 +27,34 @@ export default function NewInterviewPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const roomId = generateRoomId();
-    // TODO: API call to create interview
-    setTimeout(() => {
-      setLoading(false);
+
+    try {
+      const dbDateStr = form.scheduledDate && form.scheduledTime 
+        ? `${form.scheduledDate}T${form.scheduledTime}:00Z` 
+        : null;
+
+      const res = await fetch('/api/interviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: form.title,
+          scheduledAt: dbDateStr,
+          durationMinutes: form.durationMinutes,
+          candidateName: form.candidateName,
+          candidateEmail: form.candidateEmail,
+          interviewerName: form.interviewerName,
+          questionIds: form.selectedQuestions,
+        }),
+      });
+
+      if (!res.ok) throw new Error('Failed to create interview');
+      
       router.push('/interviews');
-    }, 1000);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to schedule the interview. Please check console.');
+      setLoading(false);
+    }
   };
 
   return (
@@ -146,6 +169,25 @@ export default function NewInterviewPage() {
                     required
                   />
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Interviewer */}
+          <div className="card p-6 space-y-4">
+            <h2 className="text-sm font-semibold text-dash-text mb-4">Your Details</h2>
+            <div>
+              <label className="text-xs font-medium text-dash-muted mb-1.5 block">Your Name (shown in the email)</label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dash-muted" />
+                <input
+                  type="text"
+                  value={form.interviewerName}
+                  onChange={(e) => setForm({ ...form, interviewerName: e.target.value })}
+                  placeholder="e.g., Divya Surse"
+                  className="input pl-10"
+                  required
+                />
               </div>
             </div>
           </div>

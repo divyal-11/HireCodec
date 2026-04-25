@@ -1,0 +1,334 @@
+-- HireCodec Database Migration
+-- Run this in Supabase SQL Editor: app.supabase.com → SQL Editor → New query → paste → Run
+
+-- ── ENUMS ─────────────────────────────────────────────────────────────────────
+
+CREATE TYPE "UserRole" AS ENUM ('ADMIN', 'RECRUITER', 'INTERVIEWER', 'CANDIDATE');
+CREATE TYPE "Difficulty" AS ENUM ('EASY', 'MEDIUM', 'HARD');
+CREATE TYPE "QuestionType" AS ENUM ('CODING', 'SYSTEM_DESIGN', 'BEHAVIORAL', 'SQL');
+CREATE TYPE "InterviewStatus" AS ENUM ('SCHEDULED', 'WAITING', 'ACTIVE', 'COMPLETED', 'CANCELLED', 'NO_SHOW');
+CREATE TYPE "ExecutionStatus" AS ENUM ('PENDING', 'RUNNING', 'ACCEPTED', 'WRONG_ANSWER', 'TIME_LIMIT_EXCEEDED', 'MEMORY_LIMIT_EXCEEDED', 'RUNTIME_ERROR', 'COMPILATION_ERROR', 'SYSTEM_ERROR');
+
+-- ── ORGANIZATIONS ─────────────────────────────────────────────────────────────
+
+CREATE TABLE "organizations" (
+  "id"         UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "name"       VARCHAR(255) NOT NULL,
+  "slug"       VARCHAR(100) NOT NULL,
+  "logo_url"   TEXT,
+  "plan"       VARCHAR(50)  NOT NULL DEFAULT 'free',
+  "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT "organizations_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "organizations_slug_key" UNIQUE ("slug")
+);
+
+-- ── USERS ─────────────────────────────────────────────────────────────────────
+
+CREATE TABLE "users" (
+  "id"            UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "org_id"        UUID,
+  "email"         VARCHAR(255) NOT NULL,
+  "name"          VARCHAR(255),
+  "avatar_url"    TEXT,
+  "role"          "UserRole"  NOT NULL DEFAULT 'INTERVIEWER',
+  "password_hash" TEXT,
+  "is_active"     BOOLEAN     NOT NULL DEFAULT TRUE,
+  "last_login_at" TIMESTAMPTZ,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT "users_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "users_email_key" UNIQUE ("email"),
+  CONSTRAINT "users_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "organizations"("id") ON DELETE CASCADE
+);
+
+CREATE INDEX "users_org_id_role_idx" ON "users"("org_id", "role");
+
+-- ── OAUTH ACCOUNTS ────────────────────────────────────────────────────────────
+
+CREATE TABLE "oauth_accounts" (
+  "id"            UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "user_id"       UUID        NOT NULL,
+  "provider"      VARCHAR(50) NOT NULL,
+  "provider_id"   VARCHAR(255) NOT NULL,
+  "access_token"  TEXT,
+  "refresh_token" TEXT,
+  "expires_at"    TIMESTAMPTZ,
+  CONSTRAINT "oauth_accounts_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "oauth_accounts_provider_provider_id_key" UNIQUE ("provider", "provider_id"),
+  CONSTRAINT "oauth_accounts_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE
+);
+
+-- ── QUESTIONS ─────────────────────────────────────────────────────────────────
+
+CREATE TABLE "questions" (
+  "id"              UUID          NOT NULL DEFAULT gen_random_uuid(),
+  "org_id"          UUID,
+  "created_by"      UUID,
+  "title"           VARCHAR(500)  NOT NULL,
+  "slug"            VARCHAR(255)  NOT NULL,
+  "description"     TEXT          NOT NULL,
+  "difficulty"      "Difficulty"  NOT NULL,
+  "type"            "QuestionType" NOT NULL DEFAULT 'CODING',
+  "tags"            TEXT[]        NOT NULL DEFAULT '{}',
+  "time_limit_ms"   INTEGER       NOT NULL DEFAULT 5000,
+  "memory_limit_mb" INTEGER       NOT NULL DEFAULT 256,
+  "is_public"       BOOLEAN       NOT NULL DEFAULT FALSE,
+  "is_archived"     BOOLEAN       NOT NULL DEFAULT FALSE,
+  "created_at"      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  "updated_at"      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  CONSTRAINT "questions_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "questions_slug_key" UNIQUE ("slug"),
+  CONSTRAINT "questions_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "organizations"("id") ON DELETE CASCADE,
+  CONSTRAINT "questions_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "users"("id")
+);
+
+-- ── QUESTION STARTERS ─────────────────────────────────────────────────────────
+
+CREATE TABLE "question_starters" (
+  "id"            UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "question_id"   UUID        NOT NULL,
+  "language"      VARCHAR(50) NOT NULL,
+  "starter_code"  TEXT        NOT NULL,
+  "solution_code" TEXT,
+  CONSTRAINT "question_starters_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "question_starters_question_id_language_key" UNIQUE ("question_id", "language"),
+  CONSTRAINT "question_starters_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "questions"("id") ON DELETE CASCADE
+);
+
+-- ── TEST CASES ────────────────────────────────────────────────────────────────
+
+CREATE TABLE "test_cases" (
+  "id"              UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "question_id"     UUID        NOT NULL,
+  "input"           TEXT        NOT NULL,
+  "expected_output" TEXT        NOT NULL,
+  "is_hidden"       BOOLEAN     NOT NULL DEFAULT FALSE,
+  "explanation"     TEXT,
+  "order_index"     INTEGER     NOT NULL DEFAULT 0,
+  "created_at"      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT "test_cases_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "test_cases_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "questions"("id") ON DELETE CASCADE
+);
+
+CREATE INDEX "test_cases_question_id_idx" ON "test_cases"("question_id");
+
+-- ── INTERVIEWS ────────────────────────────────────────────────────────────────
+
+CREATE TABLE "interviews" (
+  "id"               UUID              NOT NULL DEFAULT gen_random_uuid(),
+  "org_id"           UUID,
+  "title"            VARCHAR(255),
+  "status"           "InterviewStatus" NOT NULL DEFAULT 'SCHEDULED',
+  "scheduled_at"     TIMESTAMPTZ,
+  "started_at"       TIMESTAMPTZ,
+  "ended_at"         TIMESTAMPTZ,
+  "duration_minutes" INTEGER           NOT NULL DEFAULT 60,
+  "room_id"          VARCHAR(100)      NOT NULL,
+  "invite_token"     VARCHAR(255),
+  "notes"            TEXT,
+  "recording_url"    TEXT,
+  "created_at"       TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
+  "updated_at"       TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
+  CONSTRAINT "interviews_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "interviews_room_id_key" UNIQUE ("room_id"),
+  CONSTRAINT "interviews_invite_token_key" UNIQUE ("invite_token"),
+  CONSTRAINT "interviews_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "organizations"("id") ON DELETE CASCADE
+);
+
+CREATE INDEX "interviews_room_id_idx" ON "interviews"("room_id");
+CREATE INDEX "interviews_org_id_status_idx" ON "interviews"("org_id", "status");
+
+-- ── INTERVIEW PARTICIPANTS ────────────────────────────────────────────────────
+
+CREATE TABLE "interview_participants" (
+  "id"           UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "interview_id" UUID        NOT NULL,
+  "user_id"      UUID,
+  "role"         VARCHAR(50) NOT NULL,
+  "joined_at"    TIMESTAMPTZ,
+  "left_at"      TIMESTAMPTZ,
+  "guest_name"   VARCHAR(255),
+  "guest_email"  VARCHAR(255),
+  CONSTRAINT "interview_participants_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "interview_participants_interview_id_fkey" FOREIGN KEY ("interview_id") REFERENCES "interviews"("id") ON DELETE CASCADE,
+  CONSTRAINT "interview_participants_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id")
+);
+
+-- ── INTERVIEW QUESTIONS ───────────────────────────────────────────────────────
+
+CREATE TABLE "interview_questions" (
+  "id"           UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "interview_id" UUID        NOT NULL,
+  "question_id"  UUID        NOT NULL,
+  "order_index"  INTEGER     NOT NULL DEFAULT 0,
+  "assigned_at"  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "started_at"   TIMESTAMPTZ,
+  "completed_at" TIMESTAMPTZ,
+  CONSTRAINT "interview_questions_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "interview_questions_interview_id_fkey" FOREIGN KEY ("interview_id") REFERENCES "interviews"("id") ON DELETE CASCADE,
+  CONSTRAINT "interview_questions_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "questions"("id")
+);
+
+-- ── CODE SESSIONS ─────────────────────────────────────────────────────────────
+
+CREATE TABLE "code_sessions" (
+  "id"           UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "interview_id" UUID        NOT NULL,
+  "question_id"  UUID,
+  "language"     VARCHAR(50) NOT NULL DEFAULT 'python',
+  "current_code" TEXT        NOT NULL DEFAULT '',
+  "yjs_state"    BYTEA,
+  "created_at"   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT "code_sessions_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "code_sessions_interview_id_question_id_key" UNIQUE ("interview_id", "question_id"),
+  CONSTRAINT "code_sessions_interview_id_fkey" FOREIGN KEY ("interview_id") REFERENCES "interviews"("id") ON DELETE CASCADE,
+  CONSTRAINT "code_sessions_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "questions"("id")
+);
+
+-- ── CODE SNAPSHOTS ────────────────────────────────────────────────────────────
+
+CREATE TABLE "code_snapshots" (
+  "id"          UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "session_id"  UUID        NOT NULL,
+  "code"        TEXT        NOT NULL,
+  "language"    VARCHAR(50),
+  "created_by"  UUID,
+  "snapshot_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT "code_snapshots_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "code_snapshots_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "code_sessions"("id") ON DELETE CASCADE,
+  CONSTRAINT "code_snapshots_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "users"("id")
+);
+
+-- ── EXECUTIONS ────────────────────────────────────────────────────────────────
+
+CREATE TABLE "executions" (
+  "id"             UUID              NOT NULL DEFAULT gen_random_uuid(),
+  "session_id"     UUID              NOT NULL,
+  "submitted_by"   UUID,
+  "code"           TEXT              NOT NULL,
+  "language"       VARCHAR(50)       NOT NULL,
+  "status"         "ExecutionStatus" NOT NULL DEFAULT 'PENDING',
+  "stdout"         TEXT,
+  "stderr"         TEXT,
+  "compile_output" TEXT,
+  "exit_code"      INTEGER,
+  "time_ms"        INTEGER,
+  "memory_kb"      INTEGER,
+  "is_run"         BOOLEAN           NOT NULL DEFAULT TRUE,
+  "created_at"     TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
+  "completed_at"   TIMESTAMPTZ,
+  CONSTRAINT "executions_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "executions_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "code_sessions"("id") ON DELETE CASCADE,
+  CONSTRAINT "executions_submitted_by_fkey" FOREIGN KEY ("submitted_by") REFERENCES "users"("id")
+);
+
+CREATE INDEX "executions_session_id_idx" ON "executions"("session_id");
+
+-- ── EXECUTION TEST RESULTS ────────────────────────────────────────────────────
+
+CREATE TABLE "execution_test_results" (
+  "id"            UUID              NOT NULL DEFAULT gen_random_uuid(),
+  "execution_id"  UUID              NOT NULL,
+  "test_case_id"  UUID,
+  "status"        "ExecutionStatus" NOT NULL,
+  "actual_output" TEXT,
+  "time_ms"       INTEGER,
+  "memory_kb"     INTEGER,
+  CONSTRAINT "execution_test_results_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "execution_test_results_execution_id_fkey" FOREIGN KEY ("execution_id") REFERENCES "executions"("id") ON DELETE CASCADE,
+  CONSTRAINT "execution_test_results_test_case_id_fkey" FOREIGN KEY ("test_case_id") REFERENCES "test_cases"("id")
+);
+
+-- ── CHAT MESSAGES ─────────────────────────────────────────────────────────────
+
+CREATE TABLE "chat_messages" (
+  "id"           UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "interview_id" UUID        NOT NULL,
+  "sender_id"    UUID,
+  "sender_name"  VARCHAR(255),
+  "content"      TEXT        NOT NULL,
+  "message_type" VARCHAR(50) NOT NULL DEFAULT 'text',
+  "sent_at"      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT "chat_messages_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "chat_messages_interview_id_fkey" FOREIGN KEY ("interview_id") REFERENCES "interviews"("id") ON DELETE CASCADE,
+  CONSTRAINT "chat_messages_sender_id_fkey" FOREIGN KEY ("sender_id") REFERENCES "users"("id")
+);
+
+-- ── INTERVIEW FEEDBACK ────────────────────────────────────────────────────────
+
+CREATE TABLE "interview_feedback" (
+  "id"                  UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "interview_id"        UUID        NOT NULL,
+  "reviewer_id"         UUID,
+  "candidate_id"        UUID,
+  "overall_score"       DECIMAL(3,1),
+  "problem_solving"     INTEGER,
+  "code_quality"        INTEGER,
+  "communication"       INTEGER,
+  "technical_knowledge" INTEGER,
+  "hire_decision"       VARCHAR(50),
+  "strengths"           TEXT,
+  "improvements"        TEXT,
+  "private_notes"       TEXT,
+  "submitted_at"        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT "interview_feedback_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "interview_feedback_interview_id_fkey" FOREIGN KEY ("interview_id") REFERENCES "interviews"("id") ON DELETE CASCADE,
+  CONSTRAINT "interview_feedback_reviewer_id_fkey" FOREIGN KEY ("reviewer_id") REFERENCES "users"("id"),
+  CONSTRAINT "interview_feedback_candidate_id_fkey" FOREIGN KEY ("candidate_id") REFERENCES "users"("id")
+);
+
+-- ── SESSION EVENTS ────────────────────────────────────────────────────────────
+
+CREATE TABLE "session_events" (
+  "id"           BIGSERIAL   NOT NULL,
+  "interview_id" UUID        NOT NULL,
+  "event_type"   VARCHAR(100) NOT NULL,
+  "payload"      JSONB       NOT NULL,
+  "actor_id"     UUID,
+  "occurred_at"  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT "session_events_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "session_events_interview_id_fkey" FOREIGN KEY ("interview_id") REFERENCES "interviews"("id") ON DELETE CASCADE,
+  CONSTRAINT "session_events_actor_id_fkey" FOREIGN KEY ("actor_id") REFERENCES "users"("id")
+);
+
+CREATE INDEX "session_events_interview_id_occurred_at_idx" ON "session_events"("interview_id", "occurred_at");
+
+-- ── NextAuth required tables ──────────────────────────────────────────────────
+
+CREATE TABLE "accounts" (
+  "id"                  TEXT NOT NULL,
+  "userId"              TEXT NOT NULL,
+  "type"                TEXT NOT NULL,
+  "provider"            TEXT NOT NULL,
+  "providerAccountId"   TEXT NOT NULL,
+  "refresh_token"       TEXT,
+  "access_token"        TEXT,
+  "expires_at"          INTEGER,
+  "token_type"          TEXT,
+  "scope"               TEXT,
+  "id_token"            TEXT,
+  "session_state"       TEXT,
+  CONSTRAINT "accounts_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "accounts_provider_providerAccountId_key" UNIQUE ("provider", "providerAccountId")
+);
+
+CREATE TABLE "sessions" (
+  "id"           TEXT        NOT NULL,
+  "sessionToken" TEXT        NOT NULL,
+  "userId"       TEXT        NOT NULL,
+  "expires"      TIMESTAMPTZ NOT NULL,
+  CONSTRAINT "sessions_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "sessions_sessionToken_key" UNIQUE ("sessionToken")
+);
+
+CREATE TABLE "verification_tokens" (
+  "identifier" TEXT        NOT NULL,
+  "token"      TEXT        NOT NULL,
+  "expires"    TIMESTAMPTZ NOT NULL,
+  CONSTRAINT "verification_tokens_identifier_token_key" UNIQUE ("identifier", "token")
+);
+
+-- Done! ✅
+SELECT 'All tables created successfully!' AS status;

@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import {
   ArrowLeft, Video, Calendar, Clock, User, Copy,
-  ExternalLink, Play, FileText, MessageSquare,
+  Play, FileText,
 } from 'lucide-react';
 import { cn, formatDate } from '@/lib/utils';
 
@@ -32,7 +32,7 @@ export default function InterviewDetailPage({ params }: { params: { id: string }
     <div className="p-8 max-w-4xl mx-auto">
       <Link
         href="/interviews"
-        className="flex items-center gap-1.5 text-sm text-dash-muted hover:text-dash-text mb-6 transition-colors"
+        className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 mb-6 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
         Back to Interviews
@@ -41,21 +41,15 @@ export default function InterviewDetailPage({ params }: { params: { id: string }
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
         <div className="flex items-start justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-dash-text">{interview.title}</h1>
-            <p className="text-sm text-dash-muted mt-1 font-mono">{interview.roomId}</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{interview.title}</h1>
+            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1 font-mono">{interview.roomId}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Link
-              href={`/interviews/${params.id}/replay`}
-              className="btn-secondary btn-sm"
-            >
+            <Link href={`/interviews/${params.id}/replay`} className="btn-secondary btn-sm">
               <Play className="w-3.5 h-3.5" />
               Replay
             </Link>
-            <Link
-              href={`/room/${interview.roomId}`}
-              className="btn-primary btn-sm"
-            >
+            <Link href={`/room/${interview.roomId}`} className="btn-primary btn-sm">
               <Video className="w-3.5 h-3.5" />
               Join Room
             </Link>
@@ -65,22 +59,23 @@ export default function InterviewDetailPage({ params }: { params: { id: string }
         <div className="grid grid-cols-3 gap-6">
           {/* Main info */}
           <div className="col-span-2 space-y-6">
+
             {/* Details card */}
             <div className="card p-6">
-              <h2 className="text-sm font-semibold text-dash-text mb-4">Interview Details</h2>
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">Interview Details</h2>
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex items-center gap-3">
-                  <Calendar className="w-4 h-4 text-dash-muted" />
+                  <Calendar className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                   <div>
-                    <p className="text-xs text-dash-muted">Scheduled</p>
-                    <p className="text-sm text-dash-text">{formatDate(interview.scheduledAt)}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Scheduled</p>
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{formatDate(interview.scheduledAt)}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Clock className="w-4 h-4 text-dash-muted" />
+                  <Clock className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                   <div>
-                    <p className="text-xs text-dash-muted">Duration</p>
-                    <p className="text-sm text-dash-text">{interview.durationMinutes} minutes</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Duration</p>
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{interview.durationMinutes} minutes</p>
                   </div>
                 </div>
               </div>
@@ -88,20 +83,20 @@ export default function InterviewDetailPage({ params }: { params: { id: string }
 
             {/* Questions */}
             <div className="card p-6">
-              <h2 className="text-sm font-semibold text-dash-text mb-4 flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
                 <FileText className="w-4 h-4 text-brand-primary" />
                 Assigned Questions
               </h2>
               <div className="space-y-2">
                 {interview.questions.map((q, i) => (
-                  <div key={q.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
+                  <div key={q.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-white/[0.04] border border-transparent dark:border-white/5">
                     <div className="flex items-center gap-3">
-                      <span className="text-xs text-dash-muted font-mono w-6">{i + 1}.</span>
-                      <span className="text-sm font-medium text-dash-text">{q.title}</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500 font-mono w-6">{i + 1}.</span>
+                      <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{q.title}</span>
                     </div>
                     <span className={cn(
                       'badge text-[10px]',
-                      q.difficulty === 'EASY' ? 'badge-easy' :
+                      q.difficulty === 'EASY'   ? 'badge-easy' :
                       q.difficulty === 'MEDIUM' ? 'badge-medium' : 'badge-hard'
                     )}>
                       {q.difficulty}
@@ -114,26 +109,27 @@ export default function InterviewDetailPage({ params }: { params: { id: string }
 
           {/* Sidebar */}
           <div className="space-y-6">
+
             {/* Participants */}
             <div className="card p-6">
-              <h2 className="text-sm font-semibold text-dash-text mb-4">Participants</h2>
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">Participants</h2>
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-brand-primary/10 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full bg-brand-primary/10 flex items-center justify-center shrink-0">
                     <User className="w-4 h-4 text-brand-primary" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-dash-text">{interview.interviewer.name}</p>
-                    <p className="text-[10px] text-dash-muted">Interviewer</p>
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{interview.interviewer.name}</p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400">Interviewer</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-brand-accent/10 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full bg-brand-accent/10 flex items-center justify-center shrink-0">
                     <User className="w-4 h-4 text-brand-accent" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-dash-text">{interview.candidate.name}</p>
-                    <p className="text-[10px] text-dash-muted">Candidate</p>
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{interview.candidate.name}</p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400">Candidate</p>
                   </div>
                 </div>
               </div>
@@ -141,7 +137,7 @@ export default function InterviewDetailPage({ params }: { params: { id: string }
 
             {/* Invite link */}
             <div className="card p-6">
-              <h2 className="text-sm font-semibold text-dash-text mb-3">Invite Link</h2>
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Invite Link</h2>
               <div className="flex items-center gap-2">
                 <input
                   type="text"
@@ -151,12 +147,13 @@ export default function InterviewDetailPage({ params }: { params: { id: string }
                 />
                 <button
                   onClick={() => navigator.clipboard.writeText(interview.inviteLink)}
-                  className="btn-ghost p-2 rounded-lg shrink-0"
+                  className="btn-ghost p-2 rounded-lg shrink-0 text-gray-400 hover:text-gray-200"
                 >
-                  <Copy className="w-4 h-4 text-dash-muted" />
+                  <Copy className="w-4 h-4" />
                 </button>
               </div>
             </div>
+
           </div>
         </div>
       </motion.div>
